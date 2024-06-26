@@ -1,13 +1,13 @@
-const express = require("express");
+const express = require('express');
 const router = express.Router();
-const Joi = require("joi");
+const Joi = require('joi');
 const {
   listContacts,
   getContactById,
   removeContact,
   addContact,
   updateContact,
-} = require("../../models/contacts");
+} = require('../../models/contacts');
 
 const contactSchema = Joi.object({
   name: Joi.string().required(),
@@ -15,7 +15,7 @@ const contactSchema = Joi.object({
   phone: Joi.string().required(),
 });
 
-router.get("/", async (req, res, next) => {
+router.get('/', async (req, res, next) => {
   try {
     const contacts = await listContacts();
     res.status(200).json(contacts);
@@ -24,11 +24,11 @@ router.get("/", async (req, res, next) => {
   }
 });
 
-router.get("/:id", async (req, res, next) => {
+router.get('/:id', async (req, res, next) => {
   try {
     const contact = await getContactById(req.params.id);
     if (!contact) {
-      return res.status(404).json({ message: "Not found" });
+      return res.status(404).json({ message: 'Not found' });
     }
     res.status(200).json(contact);
   } catch (error) {
@@ -36,7 +36,7 @@ router.get("/:id", async (req, res, next) => {
   }
 });
 
-router.post("/", async (req, res, next) => {
+router.post('/', async (req, res, next) => {
   try {
     const { error } = contactSchema.validate(req.body);
     if (error) {
@@ -49,19 +49,19 @@ router.post("/", async (req, res, next) => {
   }
 });
 
-router.delete("/:id", async (req, res, next) => {
+router.delete('/:id', async (req, res, next) => {
   try {
     const removedContact = await removeContact(req.params.id);
     if (!removedContact) {
-      return res.status(404).json({ message: "Not found" });
+      return res.status(404).json({ message: 'Not found' });
     }
-    res.status(200).json({ message: "contact deleted" });
+    res.status(200).json({ message: 'Contact deleted' });
   } catch (error) {
     next(error);
   }
 });
 
-router.put("/:id", async (req, res, next) => {
+router.put('/:id', async (req, res, next) => {
   try {
     const { error } = contactSchema.validate(req.body);
     if (error) {
@@ -69,7 +69,21 @@ router.put("/:id", async (req, res, next) => {
     }
     const updatedContact = await updateContact(req.params.id, req.body);
     if (!updatedContact) {
-      return res.status(404).json({ message: "Not found" });
+      return res.status(404).json({ message: 'Not found' });
+    }
+    res.status(200).json(updatedContact);
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.patch('/:id/favorite', async (req, res, next) => {
+  try {
+    const updatedContact = await updateContact(req.params.id, {
+      favorite: req.body.favorite,
+    });
+    if (!updatedContact) {
+      return res.status(404).json({ message: 'Not found' });
     }
     res.status(200).json(updatedContact);
   } catch (error) {
