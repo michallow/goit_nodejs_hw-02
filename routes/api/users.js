@@ -58,13 +58,8 @@ router.post('/login', async (req, res, next) => {
 
 router.get('/logout', auth, async (req, res, next) => {
   try {
-    const user = await User.findById(req.user.id);
-    if (!user) {
-      return res.status(401).json({ message: 'Not authorized' });
-    }
-
-    user.token = null;
-    await user.save();
+    req.user.token = null;
+    await req.user.save();
 
     res.status(204).send();
   } catch (error) {
@@ -74,12 +69,7 @@ router.get('/logout', auth, async (req, res, next) => {
 
 router.get('/current', auth, async (req, res, next) => {
   try {
-    const user = await User.findById(req.user.id);
-    if (!user) {
-      return res.status(401).json({ message: 'Not authorized' });
-    }
-
-    res.status(200).json({ email: user.email, subscription: user.subscription });
+    res.status(200).json({ email: req.user.email, subscription: req.user.subscription });
   } catch (error) {
     next(error);
   }

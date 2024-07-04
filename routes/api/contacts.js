@@ -20,18 +20,6 @@ const favoriteSchema = Joi.object({
   favorite: Joi.boolean().required(),
 });
 
-const checkOwner = async (req, res, next) => {
-  try {
-    const contact = await getContactById(req.params.id, req.user._id);
-    if (!contact || contact.owner.toString() !== req.user._id) {
-      return res.status(403).json({ message: 'Forbidden' });
-    }
-    next();
-  } catch (error) {
-    next(error);
-  }
-};
-
 router.post('/', auth, async (req, res, next) => {
   try {
     const { error } = contactSchema.validate(req.body);
@@ -54,7 +42,7 @@ router.get('/', auth, async (req, res, next) => {
   }
 });
 
-router.get('/:id', auth, checkOwner, async (req, res, next) => {
+router.get('/:id', auth, async (req, res, next) => {
   try {
     const contact = await getContactById(req.params.id, req.user._id);
     if (!contact) {
@@ -66,7 +54,7 @@ router.get('/:id', auth, checkOwner, async (req, res, next) => {
   }
 });
 
-router.put('/:id', auth, checkOwner, async (req, res, next) => {
+router.put('/:id', auth, async (req, res, next) => {
   try {
     const { error } = contactSchema.validate(req.body);
     if (error) {
@@ -82,7 +70,7 @@ router.put('/:id', auth, checkOwner, async (req, res, next) => {
   }
 });
 
-router.delete('/:id', auth, checkOwner, async (req, res, next) => {
+router.delete('/:id', auth, async (req, res, next) => {
   try {
     const removedContact = await removeContact(req.params.id, req.user._id);
     if (!removedContact) {
@@ -94,7 +82,7 @@ router.delete('/:id', auth, checkOwner, async (req, res, next) => {
   }
 });
 
-router.patch('/:id/favorite', auth, checkOwner, async (req, res, next) => {
+router.patch('/:id/favorite', auth, async (req, res, next) => {
   try {
     const { error } = favoriteSchema.validate(req.body);
     if (error) {
