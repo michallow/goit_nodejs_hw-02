@@ -6,10 +6,13 @@ const multer = require("multer");
 const jimp = require("jimp");
 const fs = require("fs/promises");
 const path = require("path");
+const { v4: uuidv4 } = require("uuid");
+const nodemailer = require("nodemailer");
 const User = require("../../models/user");
 const {
   signupSchema,
   loginSchema,
+  emailSchema
 } = require("../../validation/userValidation");
 const auth = require("../../middleware/auth");
 
@@ -35,18 +38,38 @@ router.post("/signup", async (req, res, next) => {
     const hashedPassword = await bcrypt.hash(password, salt);
 
     const avatarURL = gravatar.url(email, { s: "200", r: "pg", d: "mm" });
+    const verificationToken = uuidv4();
 
     const newUser = await User.create({
       email,
       password: hashedPassword,
       avatarURL,
+      verificationToken,
     });
+
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      },
+    });
+
+    const mailOptions = {
+      from: process.env.EMAIL_USER,
+      to: email,
+      subject: 'Email Verification',
+      html: `<p>Click <a href="http://localhost:3000/api/users/verify/${verificationToken}">here</a> to verify your email.</p>`,
+    };
+
+    await transporter.sendMail(mailOptions);
 
     res.status(201).json({
       user: {
         email: newUser.email,
         subscription: newUser.subscription,
         avatarURL: newUser.avatarURL,
+        verificationToken: newUser.verificationToken,
       },
     });
   } catch (error) {
@@ -66,6 +89,10 @@ router.post("/login", async (req, res, next) => {
 
     if (!user || !(await bcrypt.compare(password, user.password))) {
       return res.status(401).json({ message: "Email or password is wrong" });
+    }
+
+    if (!user.verify) {
+      return res.status(401).json({ message: "Email not verified" });
     }
 
     const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
@@ -134,6 +161,68 @@ router.get("/current", auth, async (req, res, next) => {
       email: req.user.email,
       subscription: req.user.subscription,
     });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get('/verify/:verificationToken', async (req, res, next) => {
+  const { verificationToken } = req.params;
+
+  try {
+    const user = await User.findOne({ verificationToken });
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    user.verificationToken = null;
+    user.verify = true;
+    await user.save();
+
+    res.status(200).json({ message: 'Verification successful' });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post("/verify", async (req, res, next) => {
+  const { error } = emailSchema.validate(req.body);
+  if (error) {
+    return res.status(400).json({ message: "missing required field email" });
+  }
+
+  const { email } = req.body;
+
+  try {
+    const user = await User.findOne({ email });
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    if (user.verify) {
+      return res.status(400).json({ message: "Verification has already been passed" });
+    }
+
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      },
+    });
+
+    const mailOptions = {
+      from: process.env.EMAIL_USER,
+      to: email,
+      subject: 'Email Verification',
+      html: `<p>Click <a href="http://localhost:3000/api/users/verify/${user.verificationToken}">here</a> to verify your email.</p>`,
+    };
+
+    await transporter.sendMail(mailOptions);
+
+    res.status(200).json({ message: "Verification email sent" });
   } catch (error) {
     next(error);
   }
